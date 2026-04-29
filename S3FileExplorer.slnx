@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="S3FE.Client/S3FE.Client.csproj" />
+  <Project Path="S3FE.Server/S3FE.Server.csproj" />
+  <Project Path="S3FE.Shared/S3FE.Shared.csproj" />
+</Solution>

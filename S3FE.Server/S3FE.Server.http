@@ -1,0 +1,6 @@
+@S3FE.Server_HostAddress = http://localhost:12000
+
+GET {{S3FE.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
