@@ -1,6 +1,25 @@
-@S3FE.Server_HostAddress = http://localhost:12000
+@S3FE.Server_HostAddress = http://localhost:5044
+@S3FE.SessionToken = paste-token-here
 
-GET {{S3FE.Server_HostAddress}}/weatherforecast/
+POST {{S3FE.Server_HostAddress}}/api/auth/connect
+Content-Type: application/json
+
+{
+  "endpoint": "http://localhost:9000",
+  "accessKey": "minioadmin",
+  "secretKey": "minioadmin"
+}
+
+###
+
+GET {{S3FE.Server_HostAddress}}/api/buckets
+Authorization: Bearer {{S3FE.SessionToken}}
+Accept: application/json
+
+###
+
+GET {{S3FE.Server_HostAddress}}/api/buckets/example-bucket/objects
+Authorization: Bearer {{S3FE.SessionToken}}
 Accept: application/json
 
 ###

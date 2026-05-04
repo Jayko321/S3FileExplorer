@@ -2,13 +2,18 @@ namespace S3FE.Server.Controllers;
 
 using Amazon.S3;
 using Amazon.S3.Model;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using S3FE.Server.Helpers;
+using S3FE.Server.Services;
+using S3FE.Shared.DTOs;
 
+[Authorize]
 [ApiController]
 [Route("api/buckets/{bucketName}/objects")]
-public class ObjectsController(IAmazonS3 s3Client) : ControllerBase
+public class ObjectsController(ICurrentS3ClientProvider s3ClientProvider) : ControllerBase
 {
-    private readonly IAmazonS3 _s3Client = s3Client;
+    private readonly ICurrentS3ClientProvider _s3ClientProvider = s3ClientProvider;
 
     [HttpGet]
     public async Task<IActionResult> ListObjectsAsync(
@@ -17,6 +22,7 @@ public class ObjectsController(IAmazonS3 s3Client) : ControllerBase
     {
         try
         {
+            var s3Client = _s3ClientProvider.GetClient();
             var request = new ListObjectsV2Request
             {
                 BucketName = bucketName,
@@ -24,29 +30,31 @@ public class ObjectsController(IAmazonS3 s3Client) : ControllerBase
                 Delimiter = "/"
             };
 
-            var response = await _s3Client.ListObjectsV2Async(request);
+            var response = await s3Client.ListObjectsV2Async(request);
 
-            var result = new
+            var result = new ObjectListingDTO
             {
-                Folders = response.CommonPrefixes,
-                Files = response.S3Objects.Select(o => new
-                {
-                    o.Key,
-                    o.Size,
-                    o.LastModified,
-                    o.ETag
-                })
+                Folders = response.CommonPrefixes ?? [],
+                Files = (response.S3Objects ?? [])
+                    .Select(s3Object => new S3ObjectDTO
+                    {
+                        Key = s3Object.Key,
+                        Size = s3Object.Size,
+                        LastModified = s3Object.LastModified,
+                        ETag = s3Object.ETag
+                    })
+                    .ToList()
             };
 
             return Ok(result);
         }
         catch (AmazonS3Exception ex) when (ex.ErrorCode == "NoSuchBucket")
         {
-            return NotFound($"Bucket '{bucketName}' does not exist.");
+            return S3ErrorResponses.BucketDoesNotExist(this, bucketName);
         }
         catch (AmazonS3Exception ex)
         {
-            return StatusCode((int)ex.StatusCode, ex.Message);
+            return S3ErrorResponses.FromException(this, ex);
         }
     }
 
@@ -63,6 +71,7 @@ public class ObjectsController(IAmazonS3 s3Client) : ControllerBase
 
         try
         {
+            var s3Client = _s3ClientProvider.GetClient();
             var key = string.IsNullOrEmpty(prefix)
                 ? file.FileName
                 : $"{prefix.TrimEnd('/')}/{file.FileName}";
@@ -76,17 +85,20 @@ public class ObjectsController(IAmazonS3 s3Client) : ControllerBase
                 UseChunkEncoding = false
             };
 
-            await _s3Client.PutObjectAsync(request);
+            await s3Client.PutObjectAsync(request);
 
-            return Ok(new { key });
+            return Ok(new UploadObjectResponseDTO
+            {
+                Key = key
+            });
         }
         catch (AmazonS3Exception ex) when (ex.ErrorCode == "NoSuchBucket")
         {
-            return NotFound($"Bucket '{bucketName}' does not exist.");
+            return S3ErrorResponses.BucketDoesNotExist(this, bucketName);
         }
         catch (AmazonS3Exception ex)
         {
-            return StatusCode((int)ex.StatusCode, ex.Message);
+            return S3ErrorResponses.FromException(this, ex);
         }
     }
 
@@ -101,24 +113,26 @@ public class ObjectsController(IAmazonS3 s3Client) : ControllerBase
 
         try
         {
-            await _s3Client.GetObjectMetadataAsync(bucketName, key);
+            var s3Client = _s3ClientProvider.GetClient();
+            await s3Client.GetObjectMetadataAsync(bucketName, key);
         }
         catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            return NotFound($"Object '{key}' does not exist in bucket '{bucketName}'.");
+            return S3ErrorResponses.ObjectDoesNotExist(this, bucketName, key);
         }
         catch (AmazonS3Exception ex) when (ex.ErrorCode == "NoSuchBucket")
         {
-            return NotFound($"Bucket '{bucketName}' does not exist.");
+            return S3ErrorResponses.BucketDoesNotExist(this, bucketName);
         }
         catch (AmazonS3Exception ex)
         {
-            return StatusCode((int)ex.StatusCode, ex.Message);
+            return S3ErrorResponses.FromException(this, ex);
         }
 
         try
         {
-            await _s3Client.DeleteObjectAsync(new DeleteObjectRequest
+            var s3Client = _s3ClientProvider.GetClient();
+            await s3Client.DeleteObjectAsync(new DeleteObjectRequest
             {
                 BucketName = bucketName,
                 Key = key
@@ -127,7 +141,7 @@ public class ObjectsController(IAmazonS3 s3Client) : ControllerBase
         }
         catch (AmazonS3Exception ex)
         {
-            return StatusCode((int)ex.StatusCode, ex.Message);
+            return S3ErrorResponses.FromException(this, ex);
         }
     }
 }
