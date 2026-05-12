@@ -30,6 +30,11 @@ public sealed class StorageModelService(IStorageApiClient storageApiClient) : IS
         return _storageApiClient.DeleteBucketAsync(bucket.Name);
     }
 
+    public Task DeleteObjectAsync(Bucket bucket, S3Object s3Object)
+    {
+        return _storageApiClient.DeleteObjectAsync(bucket.Name, s3Object.Key);
+    }
+
     public async Task<IReadOnlyList<S3Object>> ListObjectsAsync(Bucket bucket, string? prefix = null)
     {
         var listing = await _storageApiClient.ListObjectsAsync(bucket.Name, prefix);

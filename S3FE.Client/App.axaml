@@ -2,7 +2,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="S3FE.Client.App"
              xmlns:local="using:S3FE.Client"
+             xmlns:conv="using:S3FE.Client.Converters"
              RequestedThemeVariant="Dark">
+
+    <Application.Resources>
+        <conv:ObjectNullToVisibilityConverter x:Key="ObjectNullToVisibilityConverter" />
+    </Application.Resources>
 
     <Application.DataTemplates>
         <local:ViewLocator/>

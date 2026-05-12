@@ -47,6 +47,14 @@ public class StorageApiClient : IStorageApiClient
             throw await CreateExceptionAsync(response, $"Failed to delete bucket '{bucketName}'.");
     }
 
+    public async Task DeleteObjectAsync(string bucketName, string key)
+    {
+        var response = await _httpClient.DeleteAsync($"/api/buckets/{Uri.EscapeDataString(bucketName)}/objects/{Uri.EscapeDataString(key)}");
+
+        if (!response.IsSuccessStatusCode)
+            throw await CreateExceptionAsync(response, $"Failed to delete object '{key}'.");
+    }
+
     public async Task<ObjectListingDTO> ListObjectsAsync(string bucketName, string? prefix = null)
     {
         var url = $"/api/buckets/{Uri.EscapeDataString(bucketName)}/objects";

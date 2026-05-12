@@ -35,15 +35,14 @@ public class ObjectsController(ICurrentS3ClientProvider s3ClientProvider) : Cont
             var result = new ObjectListingDTO
             {
                 Folders = response.CommonPrefixes ?? [],
-                Files = (response.S3Objects ?? [])
+                Files = [.. (response.S3Objects ?? [])
                     .Select(s3Object => new S3ObjectDTO
                     {
                         Key = s3Object.Key,
                         Size = s3Object.Size,
                         LastModified = s3Object.LastModified,
                         ETag = s3Object.ETag
-                    })
-                    .ToList()
+                    })]
             };
 
             return Ok(result);

@@ -14,5 +14,7 @@ public interface IStorageApiClient
 
     Task DeleteBucketAsync(string bucketName);
 
+    Task DeleteObjectAsync(string bucketName, string key);
+
     Task<ObjectListingDTO> ListObjectsAsync(string bucketName, string? prefix = null);
 }

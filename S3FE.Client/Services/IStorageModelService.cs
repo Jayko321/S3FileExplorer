@@ -14,5 +14,7 @@ public interface IStorageModelService
 
     Task DeleteBucketAsync(Bucket bucket);
 
+    Task DeleteObjectAsync(Bucket bucket, S3Object s3Object);
+
     Task<IReadOnlyList<S3Object>> ListObjectsAsync(Bucket bucket, string? prefix = null);
 }

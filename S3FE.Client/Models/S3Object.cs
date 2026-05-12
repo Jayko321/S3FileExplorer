@@ -1,6 +1,6 @@
-namespace S3FE.Client.Models;
-
 using System;
+
+namespace S3FE.Client.Models;
 
 public sealed class S3Object(string key, long? size, DateTime? lastModified, string etag)
 {

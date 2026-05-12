@@ -239,7 +239,7 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageM
                 return;
             }
 
-            var tab = new BucketTabViewModel(bucketName, objects, CloseTab);
+            var tab = new BucketTabViewModel(bucketName, objects, CloseTab, bucket, _storageModelService);
             BucketTabs.Add(tab);
             SelectedBucketTab = tab;
             StatusMessage = $"Opened bucket '{bucketName}' with {tab.Files.Count} object(s).";
