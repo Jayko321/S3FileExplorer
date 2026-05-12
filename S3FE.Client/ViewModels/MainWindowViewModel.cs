@@ -1,18 +1,19 @@
-﻿namespace S3FE.Client.ViewModels;
-
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using S3FE.Client.Models;
 using S3FE.Client.Services;
 using S3FE.Shared.DTOs;
 
-public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageApiClient storageApiClient) : ViewModelBase
+namespace S3FE.Client.ViewModels;
+
+public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageModelService storageModelService) : ViewModelBase
 {
     private readonly IAuthApiClient _authApiClient = authApiClient;
-    private readonly IStorageApiClient _storageApiClient = storageApiClient;
+    private readonly IStorageModelService _storageModelService = storageModelService;
 
     [ObservableProperty]
     public partial string Endpoint { get; set; } = "http://localhost:9000";
@@ -49,7 +50,7 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageA
     public ObservableCollection<BucketTabViewModel> BucketTabs { get; } = [];
 
     public MainWindowViewModel()
-        : this(new AuthApiClient(), new StorageApiClient())
+        : this(new AuthApiClient(), new StorageModelService(new StorageApiClient()))
     {
     }
 
@@ -71,7 +72,7 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageA
                 SecretKey = SecretKey
             });
 
-            _storageApiClient.SetSessionToken(response.Token);
+            _storageModelService.SetSessionToken(response.Token);
             await LoadBucketsAsync();
 
             IsConnected = true;
@@ -115,15 +116,11 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageA
 
         try
         {
-            await _storageApiClient.CreateBucketAsync(bucketName);
+            var bucket = await _storageModelService.CreateBucketAsync(bucketName);
+            var bucketItem = new BucketItemViewModel(bucket);
 
-            var bucket = new BucketItemViewModel(bucketName);
-            var tab = new BucketTabViewModel(bucketName, [], CloseTab);
-
-            Buckets.Add(bucket);
-            BucketTabs.Add(tab);
-            SelectedBucket = bucket;
-            SelectedBucketTab = tab;
+            Buckets.Add(bucketItem);
+            SelectedBucket = bucketItem;
             IsCreateBucketPopupOpen = false;
             NewBucketName = string.Empty;
             StatusMessage = $"Bucket '{bucketName}' created.";
@@ -147,7 +144,7 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageA
 
         try
         {
-            await _storageApiClient.DeleteBucketAsync(bucketName);
+            await _storageModelService.DeleteBucketAsync(SelectedBucket.Bucket);
 
             var tab = BucketTabs.FirstOrDefault(bucketTab => bucketTab.BucketName == bucketName);
             if (tab is not null)
@@ -170,11 +167,19 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageA
             bucket.IsSelected = bucket == value;
 
         if (value is null)
+        {
+            SelectedBucketTab = null;
             return;
+        }
 
         var matchingTab = BucketTabs.FirstOrDefault(bucketTab => bucketTab.BucketName == value.Name);
         if (matchingTab is not null)
+        {
             SelectedBucketTab = matchingTab;
+            return;
+        }
+
+        _ = OpenBucketTabAsync(value.Name, value.Bucket);
     }
 
     partial void OnSelectedBucketTabChanged(BucketTabViewModel? value)
@@ -192,19 +197,12 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageA
 
     private async Task LoadBucketsAsync()
     {
-        var buckets = await _storageApiClient.GetBucketsAsync();
+        var buckets = await _storageModelService.GetBucketsAsync();
 
         foreach (var bucket in buckets)
-        {
-            var bucketItem = new BucketItemViewModel(bucket.Name);
-            Buckets.Add(bucketItem);
-
-            var listing = await _storageApiClient.ListObjectsAsync(bucket.Name);
-            BucketTabs.Add(new BucketTabViewModel(bucket.Name, listing.Files, CloseTab));
-        }
+            Buckets.Add(new BucketItemViewModel(bucket));
 
         SelectedBucket = Buckets.Count > 0 ? Buckets[0] : null;
-        SelectedBucketTab = BucketTabs.Count > 0 ? BucketTabs[0] : null;
     }
 
     private void CloseTab(BucketTabViewModel tab)
@@ -217,11 +215,38 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageA
             if (BucketTabs.Count == 0)
             {
                 SelectedBucketTab = null;
+                SelectedBucket = null;
                 return;
             }
 
             var nextIndex = Math.Clamp(index, 0, BucketTabs.Count - 1);
             SelectedBucketTab = BucketTabs[nextIndex];
+        }
+    }
+
+    private async Task OpenBucketTabAsync(string bucketName, Bucket bucket)
+    {
+        try
+        {
+            StatusMessage = $"Loading objects for bucket '{bucketName}'...";
+            var objects = await _storageModelService.ListObjectsAsync(bucket);
+
+            var existingTab = BucketTabs.FirstOrDefault(bucketTab => bucketTab.BucketName == bucketName);
+            if (existingTab is not null)
+            {
+                SelectedBucketTab = existingTab;
+                StatusMessage = $"Opened bucket '{bucketName}'.";
+                return;
+            }
+
+            var tab = new BucketTabViewModel(bucketName, objects, CloseTab);
+            BucketTabs.Add(tab);
+            SelectedBucketTab = tab;
+            StatusMessage = $"Opened bucket '{bucketName}' with {tab.Files.Count} object(s).";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to open bucket '{bucketName}': {ex.Message}";
         }
     }
 }

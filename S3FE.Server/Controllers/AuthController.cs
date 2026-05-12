@@ -39,7 +39,8 @@ public class AuthController(IS3SessionStore sessionStore) : ControllerBase
                 ServiceURL = endpoint,
                 ForcePathStyle = true
             });
-
+        if (client is null)
+            return StatusCode(StatusCodes.Status500InternalServerError, "Failed to create AmazonS3Client.");
         try
         {
             await client.ListBucketsAsync();
@@ -63,6 +64,11 @@ public class AuthController(IS3SessionStore sessionStore) : ControllerBase
         {
             client.Dispose();
             return StatusCode(StatusCodes.Status503ServiceUnavailable, $"Could not connect to MinIO at '{endpoint}'. Make sure the MinIO server is running.");
+        }
+        catch (Exception ex)
+        {
+            client.Dispose();
+            return StatusCode(StatusCodes.Status500InternalServerError, $"An unexpected error occurred: {ex.Message}");
         }
 
         var session = _sessionStore.CreateSession(endpoint, client);

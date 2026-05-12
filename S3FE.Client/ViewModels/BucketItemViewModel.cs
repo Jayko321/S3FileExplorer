@@ -1,10 +1,15 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using S3FE.Client.Models;
+
 namespace S3FE.Client.ViewModels;
 
-using CommunityToolkit.Mvvm.ComponentModel;
-
-public partial class BucketItemViewModel(string name) : ViewModelBase
+public partial class BucketItemViewModel(Bucket bucket) : ViewModelBase
 {
-    public string Name { get; } = name;
+    private readonly Bucket _bucket = bucket;
+
+    public string Name => _bucket.Name;
+
+    internal Bucket Bucket => _bucket;
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
