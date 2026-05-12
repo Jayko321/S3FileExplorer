@@ -15,6 +15,7 @@ public class AuthApiClient : IAuthApiClient
 
     public async Task<ConnectResponseDTO> ConnectAsync(ConnectRequestDTO request)
     {
+        //TODO: Handle exceptions
         var response = await _httpClient.PostAsJsonAsync("/api/auth/connect", request);
 
         if (!response.IsSuccessStatusCode)

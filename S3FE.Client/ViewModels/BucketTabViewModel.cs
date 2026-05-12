@@ -36,6 +36,8 @@ public partial class BucketTabViewModel(string bucketName, IEnumerable<S3Object>
         if (SelectedObject is null)
             return;
 
+        //TODO: Show confirmation dialog before deleting
+        //TODO: Handle errors from a server do not update UI before removing is completed
         await _storageModelService.DeleteObjectAsync(_bucket, SelectedObject);
         Files.Remove(SelectedObject);
         SelectedObject = null;

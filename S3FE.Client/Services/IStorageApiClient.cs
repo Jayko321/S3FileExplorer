@@ -10,11 +10,15 @@ public interface IStorageApiClient
 
     Task<IReadOnlyList<BucketDTO>> GetBucketsAsync();
 
-    Task CreateBucketAsync(string bucketName);
+    Task<BucketDTO> CreateBucketAsync(string bucketName, bool versioned = false);
 
     Task DeleteBucketAsync(string bucketName);
 
     Task DeleteObjectAsync(string bucketName, string key);
 
     Task<ObjectListingDTO> ListObjectsAsync(string bucketName, string? prefix = null);
+
+    Task<UploadObjectResponseDTO> CopyObjectAsync(string bucketName, string sourceKey, string destinationKey);
+
+    Task<UploadObjectResponseDTO> RenameObjectAsync(string bucketName, string sourceKey, string destinationKey);
 }

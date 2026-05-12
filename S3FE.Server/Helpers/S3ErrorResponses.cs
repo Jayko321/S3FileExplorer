@@ -29,4 +29,9 @@ public static class S3ErrorResponses
     {
         return controller.NotFound($"Object '{key}' does not exist in bucket '{bucketName}'.");
     }
+
+    public static IActionResult ObjectAlreadyExists(ControllerBase controller, string bucketName, string key)
+    {
+        return controller.Conflict($"Object '{key}' already exists in bucket '{bucketName}'.");
+    }
 }

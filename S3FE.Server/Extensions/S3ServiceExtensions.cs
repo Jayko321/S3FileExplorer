@@ -11,6 +11,7 @@ public static class S3ServiceExtensions
         services.AddHttpContextAccessor();
         services.AddSingleton<IS3SessionStore, InMemoryS3SessionStore>();
         services.AddScoped<ICurrentS3ClientProvider, CurrentS3ClientProvider>();
+        services.AddScoped<IObjectStorageService, ObjectStorageService>();
 
         services
             .AddAuthentication(S3SessionAuthenticationHandler.SchemeName)

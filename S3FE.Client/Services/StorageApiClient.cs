@@ -31,12 +31,19 @@ public class StorageApiClient : IStorageApiClient
         return buckets ?? [];
     }
 
-    public async Task CreateBucketAsync(string bucketName)
+    public async Task<BucketDTO> CreateBucketAsync(string bucketName, bool versioned = false)
     {
-        var response = await _httpClient.PutAsync($"/api/buckets/{Uri.EscapeDataString(bucketName)}", content: null);
+        var url = $"/api/buckets/{Uri.EscapeDataString(bucketName)}";
+        if (versioned)
+            url += "?versioned=true";
+
+        var response = await _httpClient.PutAsync(url, content: null);
 
         if (!response.IsSuccessStatusCode)
             throw await CreateExceptionAsync(response, $"Failed to create bucket '{bucketName}'.");
+
+        var dto = await response.Content.ReadFromJsonAsync<BucketDTO>();
+        return dto ?? new BucketDTO { Name = bucketName, IsVersioned = versioned };
     }
 
     public async Task DeleteBucketAsync(string bucketName)
@@ -69,6 +76,30 @@ public class StorageApiClient : IStorageApiClient
 
         var listing = await response.Content.ReadFromJsonAsync<ObjectListingDTO>();
         return listing ?? new ObjectListingDTO();
+    }
+
+    public async Task<UploadObjectResponseDTO> CopyObjectAsync(string bucketName, string sourceKey, string destinationKey)
+    {
+        var url = $"/api/buckets/{Uri.EscapeDataString(bucketName)}/objects/copy?sourceKey={Uri.EscapeDataString(sourceKey)}&destinationKey={Uri.EscapeDataString(destinationKey)}";
+        var response = await _httpClient.PostAsync(url, content: null);
+
+        if (!response.IsSuccessStatusCode)
+            throw await CreateExceptionAsync(response, $"Failed to copy object '{sourceKey}' to '{destinationKey}'.");
+
+        var result = await response.Content.ReadFromJsonAsync<UploadObjectResponseDTO>();
+        return result ?? new UploadObjectResponseDTO { Key = destinationKey };
+    }
+
+    public async Task<UploadObjectResponseDTO> RenameObjectAsync(string bucketName, string sourceKey, string destinationKey)
+    {
+        var url = $"/api/buckets/{Uri.EscapeDataString(bucketName)}/objects/rename?sourceKey={Uri.EscapeDataString(sourceKey)}&destinationKey={Uri.EscapeDataString(destinationKey)}";
+        var response = await _httpClient.PostAsync(url, content: null);
+
+        if (!response.IsSuccessStatusCode)
+            throw await CreateExceptionAsync(response, $"Failed to rename object '{sourceKey}' to '{destinationKey}'.");
+
+        var result = await response.Content.ReadFromJsonAsync<UploadObjectResponseDTO>();
+        return result ?? new UploadObjectResponseDTO { Key = destinationKey };
     }
 
     private static async Task<InvalidOperationException> CreateExceptionAsync(HttpResponseMessage response, string fallbackMessage)

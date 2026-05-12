@@ -7,11 +7,11 @@ public static class BucketExtensions
 {
     public static BucketDTO ToDTO(this Bucket bucket)
     {
-        return new BucketDTO { Name = bucket.Name };
+        return new BucketDTO { Name = bucket.Name, IsVersioned = bucket.IsVersioned };
     }
 
     public static Bucket ToModel(this BucketDTO dto)
     {
-        return new Bucket(dto.Name);
+        return new Bucket(dto.Name, dto.IsVersioned);
     }
 }

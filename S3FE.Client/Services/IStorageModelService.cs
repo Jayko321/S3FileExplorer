@@ -10,11 +10,15 @@ public interface IStorageModelService
 
     Task<IReadOnlyList<Bucket>> GetBucketsAsync();
 
-    Task<Bucket> CreateBucketAsync(string bucketName);
+    Task<Bucket> CreateBucketAsync(string bucketName, bool versioned = false);
 
     Task DeleteBucketAsync(Bucket bucket);
 
     Task DeleteObjectAsync(Bucket bucket, S3Object s3Object);
 
     Task<IReadOnlyList<S3Object>> ListObjectsAsync(Bucket bucket, string? prefix = null);
+
+    Task<S3Object> CopyObjectAsync(Bucket bucket, string sourceKey, string destinationKey);
+
+    Task<S3Object> RenameObjectAsync(Bucket bucket, string sourceKey, string destinationKey);
 }
