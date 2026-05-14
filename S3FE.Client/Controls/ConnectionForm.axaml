@@ -1,0 +1,84 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:S3FE.Client.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             x:Class="S3FE.Client.Controls.ConnectionForm"
+             x:DataType="vm:MainWindowViewModel">
+    <Border Padding="24"
+            CornerRadius="28"
+            Background="#211F26"
+            BorderBrush="#49454F"
+            BorderThickness="1">
+        <Grid RowDefinitions="Auto,Auto" RowSpacing="20">
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="S3 File Explorer"
+                               FontSize="30"
+                               FontWeight="SemiBold"
+                               Foreground="#E6E1E5" />
+                    <TextBlock Text="Connect to a local MinIO instance and browse S3-compatible storage."
+                               FontSize="14"
+                               Foreground="#CAC4D0" />
+                </StackPanel>
+
+                <Border Grid.Column="1"
+                        Padding="14,8"
+                        CornerRadius="18"
+                        Background="#4A4458"
+                        VerticalAlignment="Center">
+                    <TextBlock Text="{Binding StatusMessage}"
+                               FontSize="13"
+                               Foreground="#EADDFF"
+                               TextWrapping="Wrap"
+                               MaxWidth="420" />
+                </Border>
+            </Grid>
+
+            <Grid Grid.Row="1"
+                  ColumnDefinitions="2*,*,*,Auto"
+                  RowDefinitions="Auto,Auto"
+                  ColumnSpacing="14"
+                  RowSpacing="8">
+                <TextBlock Grid.Row="0"
+                           Grid.Column="0"
+                           Text="Endpoint"
+                           Foreground="#CAC4D0" />
+                <TextBox Grid.Row="1"
+                         Grid.Column="0"
+                         Text="{Binding Endpoint}"
+                         PlaceholderText="http://localhost:9000" />
+
+                <TextBlock Grid.Row="0"
+                           Grid.Column="1"
+                           Text="Access key"
+                           Foreground="#CAC4D0" />
+                <TextBox Grid.Row="1"
+                         Grid.Column="1"
+                         Text="{Binding AccessKey}"
+                         PlaceholderText="minioadmin" />
+
+                <TextBlock Grid.Row="0"
+                           Grid.Column="2"
+                           Text="Secret key"
+                           Foreground="#CAC4D0" />
+                <TextBox Grid.Row="1"
+                         Grid.Column="2"
+                         Text="{Binding SecretKey}"
+                         PasswordChar="*"
+                         PlaceholderText="minioadmin" />
+
+                <Button Grid.Row="1"
+                        Grid.Column="3"
+                        Classes="primary"
+                        Content="Connect"
+                        Command="{Binding ConnectCommand}"
+                        MinWidth="130"
+                        Padding="18,8"
+                        HorizontalContentAlignment="Center"
+                        VerticalAlignment="Stretch" />
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>

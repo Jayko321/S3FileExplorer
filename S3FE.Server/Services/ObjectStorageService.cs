@@ -26,11 +26,12 @@ public sealed class ObjectStorageService(
 
             var response = await s3Client.ListObjectsV2Async(request);
 
+            var s3Objects = response.S3Objects ?? [];
+
             var listing = new ObjectListingDTO
             {
                 Folders = response.CommonPrefixes ?? [],
-                Files = [.. (response.S3Objects ?? [])
-                    .Select(s3Object => new S3ObjectDTO
+                Files = [.. s3Objects.Select(s3Object => new S3ObjectDTO
                     {
                         Key = s3Object.Key,
                         Size = s3Object.Size,
@@ -38,6 +39,79 @@ public sealed class ObjectStorageService(
                         ETag = s3Object.ETag
                     })]
             };
+
+            var existingKeys = new HashSet<string>(listing.Files.Select(f => f.Key));
+
+            var versionsPerKey = new Dictionary<string, List<S3ObjectVersion>>(StringComparer.Ordinal);
+            var listVersionsReq = new ListVersionsRequest
+            {
+                BucketName = bucketName,
+                Prefix = prefix
+            };
+
+            ListVersionsResponse listVersionsRes;
+            do
+            {
+                listVersionsRes = await s3Client.ListVersionsAsync(listVersionsReq);
+
+                foreach (var version in listVersionsRes.Versions)
+                {
+                    var relativeKey = string.IsNullOrEmpty(prefix)
+                        ? version.Key
+                        : version.Key[prefix!.Length..];
+
+                    if (relativeKey.Contains('/'))
+                        continue;
+
+                    if (!versionsPerKey.TryGetValue(version.Key, out var list))
+                    {
+                        list = [];
+                        versionsPerKey[version.Key] = list;
+                    }
+                    list.Add(version);
+                }
+
+                listVersionsReq.KeyMarker = listVersionsRes.NextKeyMarker;
+                listVersionsReq.VersionIdMarker = listVersionsRes.NextVersionIdMarker;
+            } while (listVersionsRes.IsTruncated == true);
+
+            foreach (var file in listing.Files)
+            {
+                if (versionsPerKey.TryGetValue(file.Key, out var versions))
+                {
+                    file.VersionIds = [.. versions.Select(v => v.VersionId)];
+                    file.VersionId = file.VersionIds.FirstOrDefault("");
+                }
+            }
+
+            foreach (var (key, versions) in versionsPerKey)
+            {
+                if (existingKeys.Contains(key))
+                    continue;
+
+                var latest = versions.OrderByDescending(v => v.LastModified).First();
+
+                if (latest.IsDeleteMarker != true)
+                    continue;
+
+                var latestRealVersion = versions
+                    .Where(v => v.IsDeleteMarker != true)
+                    .OrderByDescending(v => v.LastModified)
+                    .FirstOrDefault();
+
+                listing.Files.Add(new S3ObjectDTO
+                {
+                    Key = key,
+                    Size = latestRealVersion?.Size ?? 0,
+                    LastModified = latest.LastModified,
+                    ETag = latestRealVersion?.ETag ?? string.Empty,
+                    VersionId = latest.VersionId,
+                    IsDeleteMarker = true,
+                    IsLatest = true,
+                    VersionIds = [.. versions.Select(v => v.VersionId)]
+                });
+                existingKeys.Add(key);
+            }
 
             return ListObjectsResult.Success(listing);
         }
@@ -51,20 +125,55 @@ public sealed class ObjectStorageService(
         }
     }
 
+    public async Task<ObjectVersionsResult> ListVersionsAsync(string bucketName, string key)
+    {
+        var s3Client = _s3ClientProvider.GetClient();
+
+        try
+        {
+            var sdkVersions = await FetchObjectVersionsAsync(s3Client, bucketName, key);
+
+            var versions = sdkVersions.Select(v => new S3ObjectDTO
+            {
+                Key = v.Key,
+                VersionId = v.VersionId,
+                Size = v.Size,
+                LastModified = v.LastModified,
+                ETag = v.ETag,
+                IsLatest = v.IsLatest ?? false,
+                IsDeleteMarker = v.IsDeleteMarker ?? false,
+                VersionIds = [v.VersionId]
+            }).ToList();
+
+            return ObjectVersionsResult.Success(versions);
+        }
+        catch (AmazonS3Exception ex) when (ex.ErrorCode == "NoSuchBucket")
+        {
+            return ObjectVersionsResult.Failure(404, $"Bucket '{bucketName}' does not exist.");
+        }
+        catch (AmazonS3Exception ex)
+        {
+            return ObjectVersionsResult.Failure((int)ex.StatusCode, ex.Message);
+        }
+    }
+
     public async Task<UploadObjectResult> UploadObjectAsync(string bucketName, string? prefix, Stream fileStream, string fileName, string contentType)
     {
         var s3Client = _s3ClientProvider.GetClient();
 
         try
         {
-            var key = string.IsNullOrEmpty(prefix)
+            var s3Key = string.IsNullOrEmpty(prefix)
                 ? fileName
                 : $"{prefix.TrimEnd('/')}/{fileName}";
+
+            if (fileStream.CanSeek)
+                fileStream.Seek(0, SeekOrigin.Begin);
 
             var request = new PutObjectRequest
             {
                 BucketName = bucketName,
-                Key = key,
+                Key = s3Key,
                 InputStream = fileStream,
                 ContentType = contentType,
                 UseChunkEncoding = false
@@ -72,7 +181,7 @@ public sealed class ObjectStorageService(
 
             await s3Client.PutObjectAsync(request);
 
-            return UploadObjectResult.Success(new UploadObjectResponseDTO { Key = key });
+            return UploadObjectResult.Success(new UploadObjectResponseDTO { Key = s3Key });
         }
         catch (AmazonS3Exception ex) when (ex.ErrorCode == "NoSuchBucket")
         {
@@ -130,7 +239,7 @@ public sealed class ObjectStorageService(
     {
         try
         {
-            var versions = await ListVersionsAsync(s3Client, bucketName, sourceKey);
+            var versions = await FetchObjectVersionsAsync(s3Client, bucketName, sourceKey);
 
             if (versions.Count == 0)
                 return CopyResult.Failure(404, $"Object '{sourceKey}' does not exist in bucket '{bucketName}'.");
@@ -158,9 +267,13 @@ public sealed class ObjectStorageService(
         }
     }
 
-    public async Task<DeleteResult> DeleteObjectAsync(string bucketName, string key)
+    public async Task<DeleteResult> DeleteObjectAsync(string bucketName, string key, string versioning = "latest")
     {
         var s3Client = _s3ClientProvider.GetClient();
+
+        if (versioning == "all")
+            return await DeleteAllVersionsAsync(bucketName, key);
+
         var sourceCheck = await CheckSourceExistsAsync(s3Client, bucketName, key);
 
         if (!sourceCheck.IsSuccess)
@@ -179,6 +292,29 @@ public sealed class ObjectStorageService(
         catch (AmazonS3Exception ex)
         {
             return DeleteResult.Failure((int)ex.StatusCode, ex.Message);
+        }
+    }
+
+    public async Task<DownloadResult> DownloadObjectAsync(string bucketName, string key)
+    {
+        var s3Client = _s3ClientProvider.GetClient();
+
+        try
+        {
+            using var response = await s3Client.GetObjectAsync(bucketName, key);
+            var contentType = response.Headers.ContentType ?? "application/octet-stream";
+            var ms = new MemoryStream();
+            await response.ResponseStream.CopyToAsync(ms);
+            ms.Position = 0;
+            return DownloadResult.Success(ms, contentType);
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound || ex.ErrorCode == "NoSuchBucket")
+        {
+            return DownloadResult.Failure(404, $"Object '{key}' does not exist in bucket '{bucketName}'.");
+        }
+        catch (AmazonS3Exception ex)
+        {
+            return DownloadResult.Failure((int)ex.StatusCode, ex.Message);
         }
     }
 
@@ -230,7 +366,7 @@ public sealed class ObjectStorageService(
         }
     }
 
-    private static async Task<List<S3ObjectVersion>> ListVersionsAsync(IAmazonS3 s3Client, string bucketName, string key)
+    private static async Task<List<S3ObjectVersion>> FetchObjectVersionsAsync(IAmazonS3 s3Client, string bucketName, string key)
     {
         var versions = new List<S3ObjectVersion>();
         var request = new ListVersionsRequest

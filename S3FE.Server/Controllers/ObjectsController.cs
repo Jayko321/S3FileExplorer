@@ -92,16 +92,37 @@ public class ObjectsController(IObjectStorageService objectStorageService) : Con
         return Ok(new UploadObjectResponseDTO { Key = result.NewKey! });
     }
 
-    // DELETE /api/buckets/{bucketName}/objects/folder/file.txt
-    [HttpDelete("{**key}")]
-    public async Task<IActionResult> DeleteObjectAsync(
+    // GET /api/buckets/{bucketName}/objects/folder/file.txt
+    [HttpGet("{**key}")]
+    public async Task<IActionResult> DownloadObjectAsync(
         [FromRoute] string bucketName,
         [FromRoute] string key)
     {
         if (string.IsNullOrWhiteSpace(key))
             return BadRequest("Object key is required.");
 
-        var result = await _objectStorageService.DeleteObjectAsync(bucketName, key);
+        var result = await _objectStorageService.DownloadObjectAsync(bucketName, key);
+
+        if (!result.IsSuccess)
+            return StatusCode(result.StatusCode, result.ErrorMessage);
+
+        return File(result.ContentStream!, result.ContentType!, key);
+    }
+
+    // DELETE /api/buckets/{bucketName}/objects/folder/file.txt?versioning=latest|all
+    [HttpDelete("{**key}")]
+    public async Task<IActionResult> DeleteObjectAsync(
+        [FromRoute] string bucketName,
+        [FromRoute] string key,
+        [FromQuery] string? versioning = null)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            return BadRequest("Object key is required.");
+
+        if (versioning is not null and not "latest" and not "all")
+            return BadRequest("Versioning must be 'latest' or 'all'.");
+
+        var result = await _objectStorageService.DeleteObjectAsync(bucketName, key, versioning ?? "latest");
 
         if (!result.IsSuccess)
             return StatusCode(result.StatusCode, result.ErrorMessage);

@@ -10,10 +10,12 @@ using S3FE.Shared.DTOs;
 
 namespace S3FE.Client.ViewModels;
 
-public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageModelService storageModelService) : ViewModelBase
+public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageModelService storageModelService, IFilePickerService filePickerService, IFileSaveService fileSaveService) : ViewModelBase
 {
     private readonly IAuthApiClient _authApiClient = authApiClient;
     private readonly IStorageModelService _storageModelService = storageModelService;
+    private readonly IFilePickerService _filePickerService = filePickerService;
+    private readonly IFileSaveService _fileSaveService = fileSaveService;
 
     [ObservableProperty]
     public partial string Endpoint { get; set; } = "http://localhost:9000";
@@ -34,10 +36,19 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageM
     public partial bool IsCreateBucketPopupOpen { get; set; }
 
     [ObservableProperty]
+    public partial bool IsConfirmDeleteOpen { get; set; }
+
+    [ObservableProperty]
     public partial string StatusMessage { get; set; } = "Enter your MinIO connection details.";
 
     [ObservableProperty]
     public partial string NewBucketName { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool CreateVersioned { get; set; }
+
+    [ObservableProperty]
+    public partial string ConfirmDeleteMessage { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial BucketItemViewModel? SelectedBucket { get; set; }
@@ -49,8 +60,20 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageM
 
     public ObservableCollection<BucketTabViewModel> BucketTabs { get; } = [];
 
+    [ObservableProperty]
+    public partial bool IsUploadVisible { get; set; }
+
+    [RelayCommand]
+    private async Task UploadFileAsync()
+    {
+        if (SelectedBucketTab is null)
+            return;
+
+        await SelectedBucketTab.UploadFileAsync();
+    }
+
     public MainWindowViewModel()
-        : this(new AuthApiClient(), new StorageModelService(new StorageApiClient()))
+        : this(new AuthApiClient(), new StorageModelService(new StorageApiClient()), new FilePickerService(), new FileSaveService())
     {
     }
 
@@ -93,6 +116,7 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageM
     private void OpenCreateBucketPopup()
     {
         NewBucketName = string.Empty;
+        CreateVersioned = false;
         IsCreateBucketPopupOpen = true;
     }
 
@@ -116,7 +140,7 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageM
 
         try
         {
-            var bucket = await _storageModelService.CreateBucketAsync(bucketName);
+            var bucket = await _storageModelService.CreateBucketAsync(bucketName, CreateVersioned);
             var bucketItem = new BucketItemViewModel(bucket);
 
             Buckets.Add(bucketItem);
@@ -132,7 +156,7 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageM
     }
 
     [RelayCommand]
-    private async Task DeleteSelectedBucketAsync()
+    private void RequestDeleteBucket()
     {
         if (SelectedBucket is null)
         {
@@ -140,17 +164,30 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageM
             return;
         }
 
-        var bucketName = SelectedBucket.Name;
+        ConfirmDeleteMessage = $"Are you sure you want to delete '{SelectedBucket.Name}'?";
+        IsConfirmDeleteOpen = true;
+    }
+
+    [RelayCommand]
+    private async Task ConfirmDeleteAsync()
+    {
+        IsConfirmDeleteOpen = false;
+        var bucketToDelete = SelectedBucket;
+
+        if (bucketToDelete is null)
+            return;
+
+        var bucketName = bucketToDelete.Name;
 
         try
         {
-            await _storageModelService.DeleteBucketAsync(SelectedBucket.Bucket);
+            await _storageModelService.DeleteBucketAsync(bucketToDelete.Bucket);
 
             var tab = BucketTabs.FirstOrDefault(bucketTab => bucketTab.BucketName == bucketName);
             if (tab is not null)
                 BucketTabs.Remove(tab);
 
-            Buckets.Remove(SelectedBucket);
+            Buckets.Remove(bucketToDelete);
             SelectedBucket = Buckets.Count > 0 ? Buckets[0] : null;
             SelectedBucketTab = BucketTabs.Count > 0 ? BucketTabs[0] : null;
             StatusMessage = $"Bucket '{bucketName}' deleted.";
@@ -159,6 +196,12 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageM
         {
             StatusMessage = $"Failed to delete bucket: {ex.Message}";
         }
+    }
+
+    [RelayCommand]
+    private void CancelDelete()
+    {
+        IsConfirmDeleteOpen = false;
     }
 
     partial void OnSelectedBucketChanged(BucketItemViewModel? value)
@@ -184,8 +227,14 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageM
 
     partial void OnSelectedBucketTabChanged(BucketTabViewModel? value)
     {
+        IsUploadVisible = value is not null;
+
         foreach (var tab in BucketTabs)
+        {
             tab.IsSelected = tab == value;
+            if (tab != value)
+                tab.IsObjectInfoPanelOpen = false;
+        }
 
         if (value is null)
             return;
@@ -228,9 +277,6 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageM
     {
         try
         {
-            StatusMessage = $"Loading objects for bucket '{bucketName}'...";
-            var objects = await _storageModelService.ListObjectsAsync(bucket);
-
             var existingTab = BucketTabs.FirstOrDefault(bucketTab => bucketTab.BucketName == bucketName);
             if (existingTab is not null)
             {
@@ -239,9 +285,12 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageM
                 return;
             }
 
-            var tab = new BucketTabViewModel(bucketName, objects, CloseTab, bucket, _storageModelService);
+            StatusMessage = $"Loading objects for bucket '{bucketName}'...";
+            var tab = new BucketTabViewModel(bucketName, CloseTab, bucket, _storageModelService, _filePickerService, _fileSaveService);
             BucketTabs.Add(tab);
             SelectedBucketTab = tab;
+            await tab.LoadObjectsAsync();
+            tab.StartAutoReload();
             StatusMessage = $"Opened bucket '{bucketName}' with {tab.Files.Count} object(s).";
         }
         catch (Exception ex)

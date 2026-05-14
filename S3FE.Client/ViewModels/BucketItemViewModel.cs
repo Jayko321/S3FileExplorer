@@ -11,6 +11,8 @@ public partial class BucketItemViewModel(Bucket bucket) : ViewModelBase
 
     internal Bucket Bucket => _bucket;
 
+    public bool IsVersioned => _bucket.IsVersioned;
+
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
 }

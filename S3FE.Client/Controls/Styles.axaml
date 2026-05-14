@@ -1,0 +1,133 @@
+<Styles xmlns="https://github.com/avaloniaui">
+    <Style Selector="TextBox">
+        <Setter Property="Background" Value="#1D1B20" />
+        <Setter Property="Foreground" Value="#E6E1E5" />
+        <Setter Property="BorderBrush" Value="#938F99" />
+        <Setter Property="CaretBrush" Value="#D0BCFF" />
+        <Setter Property="SelectionBrush" Value="#4F378B" />
+    </Style>
+
+    <Style Selector="TextBox:pointerover">
+        <Setter Property="Background" Value="#211F26" />
+        <Setter Property="Foreground" Value="#E6E1E5" />
+        <Setter Property="BorderBrush" Value="#D0BCFF" />
+    </Style>
+
+    <Style Selector="TextBox:focus">
+        <Setter Property="Background" Value="#211F26" />
+        <Setter Property="Foreground" Value="#E6E1E5" />
+        <Setter Property="BorderBrush" Value="#D0BCFF" />
+    </Style>
+
+    <Style Selector="Button.primary">
+        <Setter Property="Background" Value="#D0BCFF" />
+        <Setter Property="Foreground" Value="#381E72" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="Button.primary:pointerover">
+        <Setter Property="Background" Value="#EADDFF" />
+        <Setter Property="Foreground" Value="#21005D" />
+    </Style>
+
+    <Style Selector="Button.primary:pressed">
+        <Setter Property="Background" Value="#B69DF8" />
+        <Setter Property="Foreground" Value="#21005D" />
+    </Style>
+
+    <Style Selector="Button.secondary">
+        <Setter Property="Background" Value="#4A4458" />
+        <Setter Property="Foreground" Value="#EADDFF" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="Button.secondary:pointerover">
+        <Setter Property="Background" Value="#5E566D" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+
+    <Style Selector="Button.destructive">
+        <Setter Property="Background" Value="#8C1D18" />
+        <Setter Property="Foreground" Value="#FFDAD6" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="Button.destructive:pointerover">
+        <Setter Property="Background" Value="#BA1A1A" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+
+    <Style Selector="Button.tab-close">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="#CAC4D0" />
+        <Setter Property="Padding" Value="4,0" />
+        <Setter Property="MinWidth" Value="24" />
+        <Setter Property="MinHeight" Value="24" />
+    </Style>
+
+    <Style Selector="Button.tab-close:pointerover">
+        <Setter Property="Background" Value="#5E566D" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+
+    <Style Selector="ListBoxItem">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="0" />
+    </Style>
+
+    <Style Selector="ListBoxItem:pointerover">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="ListBoxItem:selected">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="ListBoxItem:selected:pointerover">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="ListBoxItem:selected:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="TabItem">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Foreground" Value="#E6E1E5" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <Style Selector="TabItem:pointerover">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+
+    <Style Selector="TabItem:selected">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+
+    <Style Selector="TabItem:selected /template/ Border#PART_SelectedPipe">
+        <Setter Property="IsVisible" Value="False" />
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="TabItem:selected /template/ Border#PART_LayoutRoot">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+
+    <Style Selector="TabStripItem:selected /template/ Border#PART_SelectedPipe">
+        <Setter Property="IsVisible" Value="False" />
+    </Style>
+</Styles>

@@ -1,3 +1,5 @@
+using System.IO;
+
 namespace S3FE.Server.Services;
 
 using S3FE.Shared.DTOs;
@@ -71,4 +73,27 @@ public sealed class RenameResult : ObjectServiceResult
             StatusCode = 202,
             ErrorMessage = message
         };
+}
+
+public sealed class ObjectVersionsResult : ObjectServiceResult
+{
+    public List<S3ObjectDTO> Versions { get; private set; } = [];
+
+    public static ObjectVersionsResult Success(List<S3ObjectDTO> versions) =>
+        new() { IsSuccess = true, Versions = versions };
+
+    public static ObjectVersionsResult Failure(int statusCode, string message) =>
+        new() { StatusCode = statusCode, ErrorMessage = message };
+}
+
+public sealed class DownloadResult : ObjectServiceResult
+{
+    public Stream? ContentStream { get; init; }
+    public string? ContentType { get; init; }
+
+    public static DownloadResult Success(Stream stream, string contentType) =>
+        new() { IsSuccess = true, ContentStream = stream, ContentType = contentType };
+
+    public static DownloadResult Failure(int statusCode, string message) =>
+        new() { StatusCode = statusCode, ErrorMessage = message };
 }
