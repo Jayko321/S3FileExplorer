@@ -44,7 +44,7 @@ The app is split into three projects:
 ### 1. Start MinIO
 
 ```bash
-MinIO server {path/to/data}
+minio server {path/to/data}
 ```
 
 ### 2. Run the Server
