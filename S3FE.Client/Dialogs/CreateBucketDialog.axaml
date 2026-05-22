@@ -1,0 +1,47 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="S3FE.Client.Dialogs.CreateBucketDialog"
+        Title="Create bucket"
+        Width="420"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        Background="#211F26"
+        Padding="24">
+    <Window.Styles>
+        <StyleInclude Source="/Controls/Styles.axaml" />
+    </Window.Styles>
+    <StackPanel Spacing="16">
+        <StackPanel Spacing="4">
+            <TextBlock Text="Create bucket"
+                       FontSize="24"
+                       FontWeight="SemiBold"
+                       Foreground="#E6E1E5" />
+            <TextBlock Text="Enter a new bucket name. Bucket names should be lowercase and S3-compatible."
+                       FontSize="13"
+                       Foreground="#CAC4D0"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <TextBox x:Name="BucketNameTextBox"
+                 PlaceholderText="new-bucket-name" />
+
+        <CheckBox x:Name="VersionedCheckBox"
+                  Content="Enable object versioning"
+                  Foreground="#CAC4D0"
+                  FontSize="13" />
+
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="8">
+            <Button Classes="secondary"
+                    Content="Cancel"
+                    Click="OnCancelClick" />
+            <Button Classes="primary"
+                    Content="Create"
+                    Click="OnCreateClick" />
+        </StackPanel>
+    </StackPanel>
+</Window>

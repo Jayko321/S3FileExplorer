@@ -13,6 +13,7 @@ public class AuthApiClient : IAuthApiClient
         BaseAddress = new Uri("http://localhost:12000")
     };
 
+    /// <exception cref="InvalidOperationException">Thrown when the connection fails or the server returns an empty response.</exception>
     public async Task<ConnectResponseDTO> ConnectAsync(ConnectRequestDTO request)
     {
         //TODO: Handle exceptions

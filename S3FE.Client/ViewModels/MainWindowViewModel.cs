@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
+using S3FE.Client.Dialogs;
 using S3FE.Client.Models;
 using S3FE.Client.Services;
 using S3FE.Shared.DTOs;
@@ -33,22 +34,7 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageM
     public partial bool IsConnected { get; set; }
 
     [ObservableProperty]
-    public partial bool IsCreateBucketPopupOpen { get; set; }
-
-    [ObservableProperty]
-    public partial bool IsConfirmDeleteOpen { get; set; }
-
-    [ObservableProperty]
     public partial string StatusMessage { get; set; } = "Enter your MinIO connection details.";
-
-    [ObservableProperty]
-    public partial string NewBucketName { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial bool CreateVersioned { get; set; }
-
-    [ObservableProperty]
-    public partial string ConfirmDeleteMessage { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial BucketItemViewModel? SelectedBucket { get; set; }
@@ -66,6 +52,7 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageM
     [RelayCommand]
     private async Task UploadFileAsync()
     {
+        //TODO: Remove should never happen, test that it doesn't and make sure an application cant reach that state 
         if (SelectedBucketTab is null)
             return;
 
@@ -113,24 +100,15 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageM
     }
 
     [RelayCommand]
-    private void OpenCreateBucketPopup()
-    {
-        NewBucketName = string.Empty;
-        CreateVersioned = false;
-        IsCreateBucketPopupOpen = true;
-    }
-
-    [RelayCommand]
-    private void CancelCreateBucket()
-    {
-        IsCreateBucketPopupOpen = false;
-        NewBucketName = string.Empty;
-    }
-
-    [RelayCommand]
     private async Task AddBucketAsync()
     {
-        var bucketName = NewBucketName.Trim();
+        var dialog = new CreateBucketDialog();
+        await dialog.ShowDialog(MainWindow!);
+
+        if (!dialog.Confirmed)
+            return;
+
+        var bucketName = dialog.BucketName;
 
         if (string.IsNullOrWhiteSpace(bucketName))
         {
@@ -140,13 +118,11 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageM
 
         try
         {
-            var bucket = await _storageModelService.CreateBucketAsync(bucketName, CreateVersioned);
+            var bucket = await _storageModelService.CreateBucketAsync(bucketName, dialog.Versioned);
             var bucketItem = new BucketItemViewModel(bucket);
 
             Buckets.Add(bucketItem);
             SelectedBucket = bucketItem;
-            IsCreateBucketPopupOpen = false;
-            NewBucketName = string.Empty;
             StatusMessage = $"Bucket '{bucketName}' created.";
         }
         catch (Exception ex)
@@ -156,7 +132,7 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageM
     }
 
     [RelayCommand]
-    private void RequestDeleteBucket()
+    private async Task RequestDeleteBucketAsync()
     {
         if (SelectedBucket is null)
         {
@@ -164,14 +140,12 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageM
             return;
         }
 
-        ConfirmDeleteMessage = $"Are you sure you want to delete '{SelectedBucket.Name}'?";
-        IsConfirmDeleteOpen = true;
-    }
+        var dialog = new DeleteBucketDialog(SelectedBucket.Name);
+        await dialog.ShowDialog(MainWindow!);
 
-    [RelayCommand]
-    private async Task ConfirmDeleteAsync()
-    {
-        IsConfirmDeleteOpen = false;
+        if (!dialog.Confirmed)
+            return;
+
         var bucketToDelete = SelectedBucket;
 
         if (bucketToDelete is null)
@@ -196,12 +170,6 @@ public partial class MainWindowViewModel(IAuthApiClient authApiClient, IStorageM
         {
             StatusMessage = $"Failed to delete bucket: {ex.Message}";
         }
-    }
-
-    [RelayCommand]
-    private void CancelDelete()
-    {
-        IsConfirmDeleteOpen = false;
     }
 
     partial void OnSelectedBucketChanged(BucketItemViewModel? value)

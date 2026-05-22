@@ -142,7 +142,5 @@
             </Border>
         </Grid>
 
-        <controls:CreateBucketDialog Grid.RowSpan="2" />
-        <controls:DeleteBucketDialog Grid.RowSpan="2" />
     </Grid>
 </Window>

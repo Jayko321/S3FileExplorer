@@ -9,12 +9,10 @@ using System.Net;
 public sealed class ObjectStorageService(
     ICurrentS3ClientProvider s3ClientProvider) : IObjectStorageService
 {
-    private readonly ICurrentS3ClientProvider _s3ClientProvider = s3ClientProvider;
+    private IAmazonS3 S3Client => s3ClientProvider.GetClient();
 
     public async Task<ListObjectsResult> ListObjectsAsync(string bucketName, string? prefix = null)
     {
-        var s3Client = _s3ClientProvider.GetClient();
-
         try
         {
             var request = new ListObjectsV2Request
@@ -24,7 +22,7 @@ public sealed class ObjectStorageService(
                 Delimiter = "/"
             };
 
-            var response = await s3Client.ListObjectsV2Async(request);
+            var response = await S3Client.ListObjectsV2Async(request);
 
             var s3Objects = response.S3Objects ?? [];
 
@@ -39,80 +37,7 @@ public sealed class ObjectStorageService(
                         ETag = s3Object.ETag
                     })]
             };
-
-            var existingKeys = new HashSet<string>(listing.Files.Select(f => f.Key));
-
-            var versionsPerKey = new Dictionary<string, List<S3ObjectVersion>>(StringComparer.Ordinal);
-            var listVersionsReq = new ListVersionsRequest
-            {
-                BucketName = bucketName,
-                Prefix = prefix
-            };
-
-            ListVersionsResponse listVersionsRes;
-            do
-            {
-                listVersionsRes = await s3Client.ListVersionsAsync(listVersionsReq);
-
-                foreach (var version in listVersionsRes.Versions)
-                {
-                    var relativeKey = string.IsNullOrEmpty(prefix)
-                        ? version.Key
-                        : version.Key[prefix!.Length..];
-
-                    if (relativeKey.Contains('/'))
-                        continue;
-
-                    if (!versionsPerKey.TryGetValue(version.Key, out var list))
-                    {
-                        list = [];
-                        versionsPerKey[version.Key] = list;
-                    }
-                    list.Add(version);
-                }
-
-                listVersionsReq.KeyMarker = listVersionsRes.NextKeyMarker;
-                listVersionsReq.VersionIdMarker = listVersionsRes.NextVersionIdMarker;
-            } while (listVersionsRes.IsTruncated == true);
-
-            foreach (var file in listing.Files)
-            {
-                if (versionsPerKey.TryGetValue(file.Key, out var versions))
-                {
-                    file.VersionIds = [.. versions.Select(v => v.VersionId)];
-                    file.VersionId = file.VersionIds.FirstOrDefault("");
-                }
-            }
-
-            foreach (var (key, versions) in versionsPerKey)
-            {
-                if (existingKeys.Contains(key))
-                    continue;
-
-                var latest = versions.OrderByDescending(v => v.LastModified).First();
-
-                if (latest.IsDeleteMarker != true)
-                    continue;
-
-                var latestRealVersion = versions
-                    .Where(v => v.IsDeleteMarker != true)
-                    .OrderByDescending(v => v.LastModified)
-                    .FirstOrDefault();
-
-                listing.Files.Add(new S3ObjectDTO
-                {
-                    Key = key,
-                    Size = latestRealVersion?.Size ?? 0,
-                    LastModified = latest.LastModified,
-                    ETag = latestRealVersion?.ETag ?? string.Empty,
-                    VersionId = latest.VersionId,
-                    IsDeleteMarker = true,
-                    IsLatest = true,
-                    VersionIds = [.. versions.Select(v => v.VersionId)]
-                });
-                existingKeys.Add(key);
-            }
-
+            
             return ListObjectsResult.Success(listing);
         }
         catch (AmazonS3Exception ex) when (ex.ErrorCode == "NoSuchBucket")
@@ -127,11 +52,9 @@ public sealed class ObjectStorageService(
 
     public async Task<ObjectVersionsResult> ListVersionsAsync(string bucketName, string key)
     {
-        var s3Client = _s3ClientProvider.GetClient();
-
         try
         {
-            var sdkVersions = await FetchObjectVersionsAsync(s3Client, bucketName, key);
+            var sdkVersions = await FetchObjectVersionsAsync(S3Client, bucketName, key);
 
             var versions = sdkVersions.Select(v => new S3ObjectDTO
             {
@@ -159,8 +82,6 @@ public sealed class ObjectStorageService(
 
     public async Task<UploadObjectResult> UploadObjectAsync(string bucketName, string? prefix, Stream fileStream, string fileName, string contentType)
     {
-        var s3Client = _s3ClientProvider.GetClient();
-
         try
         {
             var s3Key = string.IsNullOrEmpty(prefix)
@@ -179,7 +100,7 @@ public sealed class ObjectStorageService(
                 UseChunkEncoding = false
             };
 
-            await s3Client.PutObjectAsync(request);
+            await S3Client.PutObjectAsync(request);
 
             return UploadObjectResult.Success(new UploadObjectResponseDTO { Key = s3Key });
         }
@@ -196,21 +117,20 @@ public sealed class ObjectStorageService(
     public async Task<CopyResult> CopyObjectAsync(string bucketName, string sourceKey, string destinationKey,
         string versioningBehavior = "latest")
     {
-        var s3Client = _s3ClientProvider.GetClient();
-        var sourceCheck = await CheckSourceExistsAsync(s3Client, bucketName, sourceKey);
+        var sourceCheck = await CheckObjectAsync(S3Client, bucketName, sourceKey, expectAbsent: false);
 
         if (!sourceCheck.IsSuccess)
             return CopyResult.Failure(sourceCheck.StatusCode, sourceCheck.ErrorMessage!);
 
-        var destCheck = await CheckDestinationAbsentAsync(s3Client, bucketName, destinationKey);
+        var destCheck = await CheckObjectAsync(S3Client, bucketName, destinationKey, expectAbsent: true);
 
         if (!destCheck.IsSuccess)
             return CopyResult.Failure(destCheck.StatusCode, destCheck.ErrorMessage!);
 
         if (versioningBehavior == "all")
-            return await CopyAllVersionsAsync(s3Client, bucketName, sourceKey, destinationKey);
+            return await CopyAllVersionsAsync(S3Client, bucketName, sourceKey, destinationKey);
 
-        return await CopyLatestVersionAsync(s3Client, bucketName, sourceKey, destinationKey);
+        return await CopyLatestVersionAsync(S3Client, bucketName, sourceKey, destinationKey);
     }
 
     private static async Task<CopyResult> CopyLatestVersionAsync(IAmazonS3 s3Client, string bucketName, string sourceKey, string destinationKey)
@@ -269,19 +189,17 @@ public sealed class ObjectStorageService(
 
     public async Task<DeleteResult> DeleteObjectAsync(string bucketName, string key, string versioning = "latest")
     {
-        var s3Client = _s3ClientProvider.GetClient();
-
         if (versioning == "all")
             return await DeleteAllVersionsAsync(bucketName, key);
 
-        var sourceCheck = await CheckSourceExistsAsync(s3Client, bucketName, key);
+        var sourceCheck = await CheckObjectAsync(S3Client, bucketName, key, expectAbsent: false);
 
         if (!sourceCheck.IsSuccess)
             return DeleteResult.Failure(sourceCheck.StatusCode, sourceCheck.ErrorMessage!);
 
         try
         {
-            await s3Client.DeleteObjectAsync(new DeleteObjectRequest
+            await S3Client.DeleteObjectAsync(new DeleteObjectRequest
             {
                 BucketName = bucketName,
                 Key = key
@@ -297,11 +215,9 @@ public sealed class ObjectStorageService(
 
     public async Task<DownloadResult> DownloadObjectAsync(string bucketName, string key)
     {
-        var s3Client = _s3ClientProvider.GetClient();
-
         try
         {
-            using var response = await s3Client.GetObjectAsync(bucketName, key);
+            using var response = await S3Client.GetObjectAsync(bucketName, key);
             var contentType = response.Headers.ContentType ?? "application/octet-stream";
             var ms = new MemoryStream();
             await response.ResponseStream.CopyToAsync(ms);
@@ -341,11 +257,9 @@ public sealed class ObjectStorageService(
 
     private async Task<DeleteResult> DeleteAllVersionsAsync(string bucketName, string sourceKey)
     {
-        var s3Client = _s3ClientProvider.GetClient();
-
         try
         {
-            var versions = await ListAllVersionsIncludingMarkersAsync(s3Client, bucketName, sourceKey);
+            var versions = await FetchObjectVersionsAsync(S3Client, bucketName, sourceKey, includeDeleteMarkers: true);
 
             if (versions.Count == 0)
                 return DeleteResult.Success();
@@ -356,7 +270,7 @@ public sealed class ObjectStorageService(
                 Objects = [.. versions.Select(v => new KeyVersion { Key = v.Key, VersionId = v.VersionId })]
             };
 
-            await s3Client.DeleteObjectsAsync(deleteRequest);
+            await S3Client.DeleteObjectsAsync(deleteRequest);
 
             return DeleteResult.Success();
         }
@@ -366,7 +280,7 @@ public sealed class ObjectStorageService(
         }
     }
 
-    private static async Task<List<S3ObjectVersion>> FetchObjectVersionsAsync(IAmazonS3 s3Client, string bucketName, string key)
+    private static async Task<List<S3ObjectVersion>> FetchObjectVersionsAsync(IAmazonS3 s3Client, string bucketName, string key, bool includeDeleteMarkers = false)
     {
         var versions = new List<S3ObjectVersion>();
         var request = new ListVersionsRequest
@@ -380,7 +294,7 @@ public sealed class ObjectStorageService(
         {
             response = await s3Client.ListVersionsAsync(request);
             versions.AddRange(response.Versions
-                .Where(v => v.Key == key && v.IsDeleteMarker != true));
+                .Where(v => v.Key == key && (includeDeleteMarkers || v.IsDeleteMarker != true)));
             request.KeyMarker = response.NextKeyMarker;
             request.VersionIdMarker = response.NextVersionIdMarker;
         } while (response.IsTruncated == true);
@@ -388,74 +302,29 @@ public sealed class ObjectStorageService(
         return versions;
     }
 
-    private static async Task<List<S3ObjectVersion>> ListAllVersionsIncludingMarkersAsync(IAmazonS3 s3Client, string bucketName, string key)
-    {
-        var versions = new List<S3ObjectVersion>();
-        var request = new ListVersionsRequest
-        {
-            BucketName = bucketName,
-            Prefix = key
-        };
-
-        ListVersionsResponse response;
-        do
-        {
-            response = await s3Client.ListVersionsAsync(request);
-            versions.AddRange(response.Versions.Where(v => v.Key == key));
-            request.KeyMarker = response.NextKeyMarker;
-            request.VersionIdMarker = response.NextVersionIdMarker;
-        } while (response.IsTruncated == true);
-
-        return versions;
-    }
-
-    private static async Task<ObjectServiceResult> CheckSourceExistsAsync(IAmazonS3 s3Client, string bucketName, string key)
+    private static async Task<ObjectServiceResult> CheckObjectAsync(IAmazonS3 s3Client, string bucketName, string key, bool expectAbsent)
     {
         try
         {
             await s3Client.GetObjectMetadataAsync(bucketName, key);
-            return new ObjectServiceResult { IsSuccess = true };
-        }
-        catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
-        {
-            return new ObjectServiceResult
-            {
-                StatusCode = 404,
-                ErrorMessage = $"Object '{key}' does not exist in bucket '{bucketName}'."
-            };
-        }
-        catch (AmazonS3Exception ex) when (ex.ErrorCode == "NoSuchBucket")
-        {
-            return new ObjectServiceResult
-            {
-                StatusCode = 404,
-                ErrorMessage = $"Bucket '{bucketName}' does not exist."
-            };
-        }
-        catch (AmazonS3Exception ex)
-        {
-            return new ObjectServiceResult
-            {
-                StatusCode = (int)ex.StatusCode,
-                ErrorMessage = ex.Message
-            };
-        }
-    }
 
-    private static async Task<ObjectServiceResult> CheckDestinationAbsentAsync(IAmazonS3 s3Client, string bucketName, string key)
-    {
-        try
-        {
-            await s3Client.GetObjectMetadataAsync(bucketName, key);
-            return new ObjectServiceResult
-            {
-                StatusCode = 409,
-                ErrorMessage = $"Object '{key}' already exists in bucket '{bucketName}'."
-            };
+            return expectAbsent
+                ? new ObjectServiceResult
+                {
+                    StatusCode = 409,
+                    ErrorMessage = $"Object '{key}' already exists in bucket '{bucketName}'."
+                }
+                : new ObjectServiceResult { IsSuccess = true };
         }
         catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
-            return new ObjectServiceResult { IsSuccess = true };
+            return expectAbsent
+                ? new ObjectServiceResult { IsSuccess = true }
+                : new ObjectServiceResult
+                {
+                    StatusCode = 404,
+                    ErrorMessage = $"Object '{key}' does not exist in bucket '{bucketName}'."
+                };
         }
         catch (AmazonS3Exception ex) when (ex.ErrorCode == "NoSuchBucket")
         {

@@ -5,9 +5,4 @@ public sealed class Bucket(string name, bool isVersioned)
     public string Name { get; private set; } = name;
 
     public bool IsVersioned { get; } = isVersioned;
-
-    internal void RenameLocal(string name)
-    {
-        Name = name;
-    }
 }

@@ -1,0 +1,49 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="S3FE.Client.Dialogs.DeleteObjectDialog"
+        Title="Delete object"
+        Width="420"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        Background="#211F26"
+        Padding="24">
+    <Window.Styles>
+        <StyleInclude Source="/Controls/Styles.axaml" />
+    </Window.Styles>
+    <StackPanel Spacing="16">
+        <StackPanel Spacing="4">
+            <TextBlock x:Name="MessageText"
+                       FontSize="14"
+                       Foreground="#CAC4D0"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <StackPanel x:Name="VersioningPanel"
+                    Spacing="8"
+                    IsVisible="False">
+            <RadioButton x:Name="LatestOnlyRadio"
+                         Content="Delete latest version only"
+                         IsChecked="True"
+                         Foreground="#CAC4D0"
+                         FontSize="13" />
+            <RadioButton x:Name="AllVersionsRadio"
+                         Content="Delete all versions"
+                         Foreground="#CAC4D0"
+                         FontSize="13" />
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="8">
+            <Button Classes="secondary"
+                    Content="Cancel"
+                    Click="OnCancelClick" />
+            <Button Classes="destructive"
+                    Content="Delete"
+                    Click="OnDeleteClick" />
+        </StackPanel>
+    </StackPanel>
+</Window>

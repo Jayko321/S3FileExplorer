@@ -1,0 +1,39 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="S3FE.Client.Dialogs.DeleteBucketDialog"
+        Title="Delete bucket"
+        Width="420"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        Background="#211F26"
+        Padding="24">
+    <Window.Styles>
+        <StyleInclude Source="/Controls/Styles.axaml" />
+    </Window.Styles>
+    <StackPanel Spacing="16">
+        <StackPanel Spacing="4">
+            <TextBlock Text="Delete bucket"
+                       FontSize="24"
+                       FontWeight="SemiBold"
+                       Foreground="#E6E1E5" />
+            <TextBlock x:Name="MessageText"
+                       FontSize="14"
+                       Foreground="#CAC4D0"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="8">
+            <Button Classes="secondary"
+                    Content="Cancel"
+                    Click="OnCancelClick" />
+            <Button Classes="destructive"
+                    Content="Delete"
+                    Click="OnDeleteClick" />
+        </StackPanel>
+    </StackPanel>
+</Window>

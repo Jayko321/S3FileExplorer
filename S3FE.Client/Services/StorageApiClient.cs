@@ -21,6 +21,7 @@ public class StorageApiClient : IStorageApiClient
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
     }
 
+    /// <exception cref="HttpRequestException">Thrown when the request fails.</exception>
     public async Task<IReadOnlyList<BucketDTO>> GetBucketsAsync()
     {
         var response = await _httpClient.GetAsync("/api/buckets");
@@ -32,6 +33,7 @@ public class StorageApiClient : IStorageApiClient
         return buckets ?? [];
     }
 
+    /// <exception cref="HttpRequestException">Thrown when the request fails.</exception>
     public async Task<BucketDTO> CreateBucketAsync(string bucketName, bool versioned = false)
     {
         var url = $"/api/buckets/{Uri.EscapeDataString(bucketName)}";
@@ -47,6 +49,7 @@ public class StorageApiClient : IStorageApiClient
         return dto ?? new BucketDTO { Name = bucketName, IsVersioned = versioned };
     }
 
+    /// <exception cref="HttpRequestException">Thrown when the request fails.</exception>
     public async Task DeleteBucketAsync(string bucketName)
     {
         var response = await _httpClient.DeleteAsync($"/api/buckets/{Uri.EscapeDataString(bucketName)}");
@@ -55,6 +58,7 @@ public class StorageApiClient : IStorageApiClient
             throw await CreateExceptionAsync(response, $"Failed to delete bucket '{bucketName}'.");
     }
 
+    /// <exception cref="HttpRequestException">Thrown when the request fails.</exception>
     public async Task DeleteObjectAsync(string bucketName, string key, string? versioning = null)
     {
         var url = $"/api/buckets/{Uri.EscapeDataString(bucketName)}/objects/{Uri.EscapeDataString(key)}";
@@ -68,6 +72,7 @@ public class StorageApiClient : IStorageApiClient
             throw await CreateExceptionAsync(response, $"Failed to delete object '{key}'.");
     }
 
+    /// <exception cref="HttpRequestException">Thrown when the request fails.</exception>
     public async Task<ObjectListingDTO> ListObjectsAsync(string bucketName, string? prefix = null)
     {
         var url = $"/api/buckets/{Uri.EscapeDataString(bucketName)}/objects";
@@ -84,6 +89,7 @@ public class StorageApiClient : IStorageApiClient
         return listing ?? new ObjectListingDTO();
     }
 
+    /// <exception cref="HttpRequestException">Thrown when the request fails.</exception>
     public async Task<UploadObjectResponseDTO> CopyObjectAsync(string bucketName, string sourceKey, string destinationKey)
     {
         var url = $"/api/buckets/{Uri.EscapeDataString(bucketName)}/objects/copy?sourceKey={Uri.EscapeDataString(sourceKey)}&destinationKey={Uri.EscapeDataString(destinationKey)}";
@@ -96,6 +102,7 @@ public class StorageApiClient : IStorageApiClient
         return result ?? new UploadObjectResponseDTO { Key = destinationKey };
     }
 
+    /// <exception cref="HttpRequestException">Thrown when the request fails.</exception>
     public async Task<UploadObjectResponseDTO> UploadObjectAsync(string bucketName, string fileName, Stream fileStream, string contentType, string? prefix = null)
     {
         var url = $"/api/buckets/{Uri.EscapeDataString(bucketName)}/objects";
@@ -117,6 +124,7 @@ public class StorageApiClient : IStorageApiClient
         return result ?? new UploadObjectResponseDTO { Key = fileName };
     }
 
+    /// <exception cref="HttpRequestException">Thrown when the request fails.</exception>
     public async Task<UploadObjectResponseDTO> RenameObjectAsync(string bucketName, string sourceKey, string destinationKey, string? versioning = null)
     {
         var url = $"/api/buckets/{Uri.EscapeDataString(bucketName)}/objects/rename/{Uri.EscapeDataString(sourceKey)}?destinationKey={Uri.EscapeDataString(destinationKey)}";
@@ -133,6 +141,7 @@ public class StorageApiClient : IStorageApiClient
         return result ?? new UploadObjectResponseDTO { Key = destinationKey };
     }
 
+    /// <exception cref="HttpRequestException">Thrown when the request fails.</exception>
     public async Task<(Stream ContentStream, string ContentType)> DownloadObjectAsync(string bucketName, string key)
     {
         var url = $"/api/buckets/{Uri.EscapeDataString(bucketName)}/objects/{Uri.EscapeDataString(key)}";

@@ -29,7 +29,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="6">
                     <Button Classes="secondary"
                             Content="Add bucket"
-                            Command="{Binding OpenCreateBucketPopupCommand}"
+                            Command="{Binding AddBucketCommand}"
                             HorizontalContentAlignment="Center" />
                     <Button Classes="destructive"
                             Content="Delete"
