@@ -76,10 +76,6 @@ dotnet run --project S3FE.Client
 | POST   | `/api/buckets/{name}/objects/copy/{**sourceKey}`   | Yes  | Copy an object                                         |
 | POST   | `/api/buckets/{name}/objects/rename/{**sourceKey}` | Yes  | Rename (copy + delete)                                 |
 
-## Screenshots
-
-_Screenshots go here. Consider adding them to a `screenshots/` directory in the repo, or upload to the project's [GitHub releases page](https://github.com/jayko/S3FileExplorer/releases) and reference them with full URLs._
-
 ## Tech Stack
 
 | Layer           | Technology                  |
